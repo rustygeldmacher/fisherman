@@ -1,0 +1,51 @@
+#!/usr/bin/env ruby
+
+require 'fisherman'
+require 'shellwords'
+
+# TODO:
+# - Log in using email/password
+# - Use GetOpt for args
+
+token = ARGV[0]
+if token.nil?
+  puts "** Usage: snapfish_albums <TOKEN>"
+  exit 1
+end
+
+Snapfish.connect(token)
+
+STDERR.puts 'Gathering album information...'
+
+albums_json = Snapfish::AlbumCollection.new.map do |album|
+  photos_json = album.assets.map(&:as_json)
+  album.as_json.merge(photos: photos_json)
+end
+
+albums_json.sort_by! { |album| album[:created_at] }
+
+if ENV['BASH_SCRIPT']
+  puts <<-BASH
+#!/bin/bash
+#
+# Downloads all Snapfish albums and sorts them into folders by album title.
+# Folders are created in the current directory.
+# Requires `wget`.
+#
+  BASH
+
+  albums_json.each_with_index do |album_json, album_index|
+    directory_name = [
+      album_index.to_s.rjust(4, '0'),
+      Shellwords.escape(album_json[:name])
+    ].join(' - ')
+    puts "mkdir -p \"#{directory_name}\""
+    album_json[:photos].each_with_index do |photo_json, photo_index|
+      file_name = photo_index.to_s.rjust(4, '0') + '.' + photo_json[:file_extension]
+      destination_path = File.join(directory_name, file_name)
+      puts "wget \"#{photo_json[:url]}\" -O \"#{destination_path}\""
+    end
+  end
+else
+  puts JSON.pretty_generate(albums_json)
+end
