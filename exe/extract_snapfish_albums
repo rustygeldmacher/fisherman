@@ -28,23 +28,14 @@ if ENV['BASH_SCRIPT']
   puts <<-BASH
 #!/bin/bash
 #
-# Downloads all Snapfish albums and sorts them into folders by album title.
-# Folders are created in the current directory.
-# Requires `wget`.
+# Downloads Snapfish albums and sorts them into folders by album title.
 #
+TOKEN='#{token}'
+
   BASH
 
-  albums_json.each_with_index do |album_json, album_index|
-    directory_name = [
-      album_index.to_s.rjust(4, '0'),
-      Shellwords.escape(album_json[:name])
-    ].join(' - ')
-    puts "mkdir -p \"#{directory_name}\""
-    album_json[:photos].each_with_index do |photo_json, photo_index|
-      file_name = photo_index.to_s.rjust(4, '0') + '.' + photo_json[:file_extension]
-      destination_path = File.join(directory_name, file_name)
-      puts "wget \"#{photo_json[:url]}\" -O \"#{destination_path}\""
-    end
+  albums_json.each do |album_json|
+    puts "download_snapfish_album $TOKEN #{album.id}"
   end
 else
   puts JSON.pretty_generate(albums_json)

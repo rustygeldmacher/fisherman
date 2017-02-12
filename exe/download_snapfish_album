@@ -1,0 +1,49 @@
+#!/usr/bin/env ruby
+
+require 'fisherman'
+require 'shellwords'
+require 'fileutils'
+
+token = ARGV[0]
+album_id = ARGV[1]
+
+def download_photo(photo, destination_file)
+  response = Faraday.get(photo.hires_url)
+  if response.status == 404
+    conn = Faraday.new(url: 'https://tnl.snapfish.com/assetrenderer/v2/thumbnail/')
+    conn.headers['Authorization'] = ARGV[0]
+    conn.headers['access_token'] = ARGV[0]
+    response = conn.get(photo.snapfish_ref, height: photo.height)
+    if response.status == 302
+      response = Faraday.get(response.headers['location'])
+    end
+  end
+  if response && response.body
+    destination_file.gsub!(
+      /\.#{photo.file_extension}$/,
+      "_.#{photo.file_extension}"
+    )
+    File.open(destination_file, 'wb') { |f| f.write(response.body) }
+    response.body
+  end
+end
+
+Snapfish.connect(token)
+
+STDERR.puts 'Gathering album information...'
+
+album = Snapfish::Album.get(album_id)
+album_directory =  "#{album.created_at.strftime('%Y-%m-%d')} - #{album.name}"
+FileUtils.mkdir_p(album_directory)
+
+puts "Downloading album to directory \"#{album_directory}\""
+album.assets.each_with_index do |photo, index|
+  file_name = index.to_s.rjust(4, '0') + '.' + photo.file_extension
+  destination_file = File.join(album_directory, file_name)
+  bytes = download_photo(photo, destination_file)
+  if bytes
+    puts "Wrote #{file_name} (#{bytes.size} bytes)"
+  else
+    puts "Could not download photo #{photo.id}"
+  end
+end

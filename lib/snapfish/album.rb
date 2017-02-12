@@ -1,5 +1,10 @@
 module Snapfish
   class Album < Base
+    def self.get(album_id)
+      response_json = connection.get("collection/#{album_id}").body
+      Snapfish::Album.new(response_json['entities'].first)
+    end
+
     def id
       json['id']
     end
@@ -15,7 +20,7 @@ module Snapfish
     def assets
       album_json = connection.get(album_url,
         assetType: 'ALL',
-        limit: 100,
+        limit: asset_count,
         skip: 0,
         sortCriteria: 'dateTaken',
         sortOrder: 'ascending'
@@ -28,6 +33,7 @@ module Snapfish
 
     def as_json
       {
+        id: id,
         name: name,
         created_at: created_at
       }
@@ -36,7 +42,7 @@ module Snapfish
     private
 
     def album_url
-      "#{id}/assets"
+      "collection/#{id}/assets"
     end
   end
 end

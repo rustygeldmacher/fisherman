@@ -9,7 +9,7 @@ module Snapfish
     private
 
     def all
-      albums_json = connection.get('monthIndex',
+      albums_json = connection.get('collection/monthIndex',
         skip: 0,
         limit: 100,
         minCollection: 1000,
