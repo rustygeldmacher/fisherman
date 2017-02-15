@@ -2,6 +2,7 @@ require 'snapfish/base'
 require 'snapfish/asset'
 require 'snapfish/album'
 require 'snapfish/album_collection'
+require 'snapfish/downloader'
 
 module Snapfish
   API_BASE_URL = 'https://assets-aus.snapfish.com/pict/v2/'
@@ -10,6 +11,7 @@ module Snapfish
     connection = Faraday.new(url: API_BASE_URL) do |conn|
       conn.request :json
       conn.response :json
+      conn.response :raise_error
       conn.adapter Faraday.default_adapter
     end
 

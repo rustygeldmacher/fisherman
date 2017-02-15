@@ -1,8 +1,10 @@
 module Snapfish
   class Album < Base
     def self.get(album_id)
-      response_json = connection.get("collection/#{album_id}").body
-      Snapfish::Album.new(response_json['entities'].first)
+      response = connection.get("collection/#{album_id}")
+      if response.success?
+        Snapfish::Album.new(response.body['entities'].first)
+      end
     end
 
     def id

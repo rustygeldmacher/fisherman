@@ -1,38 +1,55 @@
 #!/usr/bin/env ruby
 
 require 'fisherman'
-require 'shellwords'
 require 'fileutils'
+require 'getoptlong'
 
-token = ARGV[0]
-album_id = ARGV[1]
-
-def download_photo(photo, destination_file)
-  response = Faraday.get(photo.hires_url)
-  if response.status == 404
-    conn = Faraday.new(url: 'https://tnl.snapfish.com/assetrenderer/v2/thumbnail/')
-    conn.headers['Authorization'] = ARGV[0]
-    conn.headers['access_token'] = ARGV[0]
-    response = conn.get(photo.snapfish_ref, height: photo.height)
-    if response.status == 302
-      response = Faraday.get(response.headers['location'])
+at_exit do
+  last_exception = $!
+  if last_exception.is_a?(Faraday::ClientError)
+    if last_exception.response[:status] == 401
+      puts "** Snapfish authentication failed."
+      puts "** Please make sure your token is valid and try again"
     end
-  end
-  if response && response.body
-    destination_file.gsub!(
-      /\.#{photo.file_extension}$/,
-      "_.#{photo.file_extension}"
-    )
-    File.open(destination_file, 'wb') { |f| f.write(response.body) }
-    response.body
+    exit! 1
   end
 end
 
-Snapfish.connect(token)
+opts = GetoptLong.new(
+  ['--token', '-t', GetoptLong::REQUIRED_ARGUMENT],
+  ['--album-id', '-a', GetoptLong::REQUIRED_ARGUMENT]
+)
 
-STDERR.puts 'Gathering album information...'
+opts.each do |op, value|
+  case op
+  when '--token'
+    @token = value
+  when '--album-id'
+    @album_id = value
+  end
+end
 
-album = Snapfish::Album.get(album_id)
+if !@token || !@album_id
+  puts <<-HELP
+** Usage: #{$0} --token <token> --album-id <album-id>
+**
+** Will download the contents of the album into a directory relative
+** to the current directory, and named with the album date plus the
+** album name.
+  HELP
+  exit 1
+end
+
+Snapfish.connect(@token)
+
+STDERR.puts "Gathering information about album #{@album_id}"
+
+album = Snapfish::Album.get(@album_id)
+if album.nil?
+  puts "** Could not find album with ID #{@album_id}"
+  exit 1
+end
+
 album_directory =  "#{album.created_at.strftime('%Y-%m-%d')} - #{album.name}"
 FileUtils.mkdir_p(album_directory)
 
@@ -40,9 +57,13 @@ puts "Downloading album to directory \"#{album_directory}\""
 album.assets.each_with_index do |photo, index|
   file_name = index.to_s.rjust(4, '0') + '.' + photo.file_extension
   destination_file = File.join(album_directory, file_name)
-  bytes = download_photo(photo, destination_file)
-  if bytes
-    puts "Wrote #{file_name} (#{bytes.size} bytes)"
+
+  downloader = Snapfish::Downloader.new(photo)
+  downloader.download(destination_file)
+
+  # TODO: rename file if it was a thumbnail
+  if downloader.bytes > 0
+    puts "Wrote #{file_name} (#{downloader.bytes.size} bytes)"
   else
     puts "Could not download photo #{photo.id}"
   end

@@ -1,19 +1,50 @@
 #!/usr/bin/env ruby
 
 require 'fisherman'
-require 'shellwords'
+require 'getoptlong'
 
-# TODO:
-# - Log in using email/password
-# - Use GetOpt for args
+at_exit do
+  last_exception = $!
+  if last_exception.is_a?(Faraday::ClientError)
+    if last_exception.response[:status] == 401
+      puts "** Snapfish authentication failed."
+      puts "** Please make sure your token is valid and try again"
+      exit! 1
+    end
+  end
+end
 
-token = ARGV[0]
-if token.nil?
-  puts "** Usage: snapfish_albums <TOKEN>"
+opts = GetoptLong.new(
+  ['--token', '-t', GetoptLong::REQUIRED_ARGUMENT],
+  ['--output', '-o', GetoptLong::REQUIRED_ARGUMENT]
+)
+
+@output = :json
+
+opts.each do |op, value|
+  case op
+  when '--token'
+    @token = value
+  when '--output'
+    if value.to_sym == :bash
+      @output = :bash
+    end
+  end
+end
+
+if !@token
+  puts <<-HELP
+** Usage: #{$0} --token <token> --output <json|bash>
+**
+** Will find all album data for the account with the current token.
+** Output is either a JSON object representing all album and photo
+** information (the default), or a bash script that makes calls to
+** download each album.
+  HELP
   exit 1
 end
 
-Snapfish.connect(token)
+Snapfish.connect(@token)
 
 STDERR.puts 'Gathering album information...'
 
@@ -24,19 +55,22 @@ end
 
 albums_json.sort_by! { |album| album[:created_at] }
 
-if ENV['BASH_SCRIPT']
+if @output == :bash
   puts <<-BASH
 #!/bin/bash
 #
 # Downloads Snapfish albums and sorts them into folders by album title.
 #
-TOKEN='#{token}'
+TOKEN='#{@token}'
+
+set -e
 
   BASH
 
   albums_json.each do |album_json|
-    puts "download_snapfish_album $TOKEN #{album.id}"
+    album_id = album_json[:id]
+    puts "download_snapfish_album --token $TOKEN --album-id #{album_id}"
   end
 else
-  puts JSON.pretty_generate(albums_json)
+  puts JSON.pretty_generate(albums: albums_json)
 end
