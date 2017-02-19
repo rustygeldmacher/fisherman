@@ -10,8 +10,9 @@ at_exit do
     if last_exception.response[:status] == 401
       puts "** Snapfish authentication failed."
       puts "** Please make sure your token is valid and try again"
+      exit! 1
     end
-    exit! 1
+    exit 1
   end
 end
 
@@ -40,9 +41,26 @@ if !@token || !@album_id
   exit 1
 end
 
+def mark_as_thumbnail(file_path, asset)
+  file_path.gsub(/(\.#{asset.file_extension})$/) { |ext| "_#{ext}" }
+end
+
+def download_photo(photo, destination_file)
+  downloader = Fisherman::Downloader.new(photo)
+  if file_contents = downloader.download
+    if downloader.thumbnail?
+      destination_file = mark_as_thumbnail(destination_file, photo)
+    end
+    File.open(destination_file, 'wb') { |f| f.write(file_contents) }
+    puts "Wrote #{destination_file} (#{file_contents.size} bytes)"
+  else
+    puts "Could not download photo #{photo.id}"
+  end
+end
+
 Snapfish.connect(@token)
 
-STDERR.puts "Gathering information about album #{@album_id}"
+puts "Gathering information about album #{@album_id}"
 
 album = Snapfish::Album.get(@album_id)
 if album.nil?
@@ -54,17 +72,9 @@ album_directory =  "#{album.created_at.strftime('%Y-%m-%d')} - #{album.name}"
 FileUtils.mkdir_p(album_directory)
 
 puts "Downloading album to directory \"#{album_directory}\""
+
 album.assets.each_with_index do |photo, index|
   file_name = index.to_s.rjust(4, '0') + '.' + photo.file_extension
   destination_file = File.join(album_directory, file_name)
-
-  downloader = Snapfish::Downloader.new(photo)
-  downloader.download(destination_file)
-
-  # TODO: rename file if it was a thumbnail
-  if downloader.bytes > 0
-    puts "Wrote #{file_name} (#{downloader.bytes.size} bytes)"
-  else
-    puts "Could not download photo #{photo.id}"
-  end
+  download_photo(photo, destination_file)
 end

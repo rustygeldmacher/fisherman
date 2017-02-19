@@ -2,7 +2,6 @@ require 'snapfish/base'
 require 'snapfish/asset'
 require 'snapfish/album'
 require 'snapfish/album_collection'
-require 'snapfish/downloader'
 
 module Snapfish
   API_BASE_URL = 'https://assets-aus.snapfish.com/pict/v2/'
@@ -20,5 +19,9 @@ module Snapfish
     connection.headers['Accept'] = 'application/json'
 
     Snapfish::Base.connection = connection
+  end
+
+  def self.token
+    Snapfish::Base.connection.headers['access_token']
   end
 end

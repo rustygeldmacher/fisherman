@@ -69,7 +69,9 @@ set -e
 
   albums_json.each do |album_json|
     album_id = album_json[:id]
+    puts "# #{album_json[:name]}"
     puts "download_snapfish_album --token $TOKEN --album-id #{album_id}"
+    puts
   end
 else
   puts JSON.pretty_generate(albums: albums_json)
