@@ -48,11 +48,7 @@ Snapfish.connect(@token)
 
 STDERR.puts 'Gathering album information...'
 
-albums_json = Snapfish::AlbumCollection.new.map do |album|
-  photos_json = album.assets.map(&:as_json)
-  album.as_json.merge(photos: photos_json)
-end
-
+albums_json = Snapfish::AlbumCollection.new.map(&:as_json)
 albums_json.sort_by! { |album| album[:created_at] }
 
 if @output == :bash
