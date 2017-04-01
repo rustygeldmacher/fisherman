@@ -6,7 +6,7 @@ require 'getoptlong'
 at_exit do
   last_exception = $!
   if last_exception.is_a?(Faraday::ClientError)
-    if last_exception.response[:status] == 401
+    if last_exception.response && last_exception.response[:status] == 401
       puts "** Snapfish authentication failed."
       puts "** Please make sure your token is valid and try again"
       exit! 1

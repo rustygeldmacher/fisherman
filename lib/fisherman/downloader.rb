@@ -21,20 +21,34 @@ module Fisherman
       # the site, the large thumbnail is what it would return.
       if response.status == 404
         @thumbnail = true
-        begin
-          thumbnail_url = File.join(THUMBNAIL_API_URL, asset.snapfish_ref)
-          response = Faraday.get(thumbnail_url,
-            height: asset.height,
-            access_token: Snapfish.token
-          )
-          if response.status == 302
-            response = Faraday.get(response.headers['location'])
-          end
-        rescue Faraday::ResourceNotFound
-          response = nil
-        end
+        response = download_thumbnail(asset)
       end
       response && response.body
+    end
+
+    private
+
+    def download_thumbnail
+      retries_remaining = 3
+      begin
+        thumbnail_url = File.join(THUMBNAIL_API_URL, asset.snapfish_ref)
+        response = Faraday.get(thumbnail_url,
+          height: asset.height,
+          access_token: Snapfish.token
+        )
+        if response.status == 302
+          response = Faraday.get(response.headers['location'])
+        end
+      rescue Faraday::ResourceNotFound
+        response = nil
+      rescue Faraday::ConnectionFailed => e
+        retries_remaining -= 1
+        if retries_remaining == 0
+          raise e
+        else
+          retry
+        end
+      end
     end
   end
 end
