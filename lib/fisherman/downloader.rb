@@ -28,7 +28,7 @@ module Fisherman
 
     private
 
-    def download_thumbnail
+    def download_thumbnail(asset)
       retries_remaining = 3
       begin
         thumbnail_url = File.join(THUMBNAIL_API_URL, asset.snapfish_ref)
