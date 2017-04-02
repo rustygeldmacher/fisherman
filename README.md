@@ -36,10 +36,15 @@ photos. To use it:
 ```bash
 > TOKEN=<access_token from site>
 > # Output a JSON file describing each ablum
-> extract_snapfish_albums $TOKEN > albums.json
+> extract_snapfish_albums --token $TOKEN --output json > albums.json
 > # Output a bash script that downloads all album photos
-> BASH_SCRIPT=true extract_snapfish_albums $TOKEN > download.sh
+> extract_snapfish_albums --token $TOKEN --output bash > download.sh
 ```
+
+The generated Bash script will in turn use the `download_snapfish_album` script.
+This script takes a token and an album ID and downloads all of the album's 
+photos to a directory underneath the current one. The album directory is named
+with the date of the album and first, then the title of the album.
 
 ## Development
 
